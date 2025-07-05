@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Page {
+  id        String    @id @default(cuid())
+  title     String
+  slug      String    @unique
+  sections  Section[]
+  createdAt DateTime  @default(now())
+}
+
+model Section {
+  id        String    @id @default(cuid())
+  type      String
+  content   Json
+  order     Int
+  pageId    String
+  page      Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  @@unique([pageId, order])
+}
+
+model Asset {
+  id          String   @id @default(cuid())
+  url         String
+  type        String   // 'image' | 'video' | 'file'
+  filename    String
+  uploadedAt  DateTime @default(now())
+  uploadedBy  String?
+} 
