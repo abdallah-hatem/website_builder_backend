@@ -2,6 +2,10 @@
 /dist
 /node_modules
 
+# uploaded files
+uploads/*
+!uploads/.gitkeep
+
 # Logs
 logs
 *.log

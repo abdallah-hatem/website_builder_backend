@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { Page } from '@prisma/client';
 import { PagesRepository } from './pages.repository';
 import { CreatePageDto } from './dto/create-page.dto';
 import { UpdatePageDto } from './dto/update-page.dto';
+import { SectionsService } from '../sections/sections.service';
 
 @Injectable()
 export class PagesService {
-  constructor(private readonly pagesRepository: PagesRepository) {}
+  constructor(
+    private readonly pagesRepository: PagesRepository,
+    @Inject(forwardRef(() => SectionsService))
+    private readonly sectionsService: SectionsService
+  ) {}
 
   async findAll(): Promise<Page[]> {
     return this.pagesRepository.findAll();
@@ -46,7 +51,11 @@ export class PagesService {
   }
 
   async delete(id: string): Promise<Page> {
-    await this.findById(id); // Check if page exists
+    const page = await this.findById(id); // Check if page exists
+    
+    // Delete all sections associated with this page (and their files)
+    await this.sectionsService.deleteByPageId(id);
+    
     return this.pagesRepository.delete(id);
   }
 } 

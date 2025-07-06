@@ -4,6 +4,7 @@ import { SectionsRepository } from './sections.repository';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
 import { ContentValidationService } from './services/content-validation.service';
+import { FileCleanupUtil } from '../../common/utils/file-cleanup.util';
 
 @Injectable()
 export class SectionsService {
@@ -19,9 +20,18 @@ export class SectionsService {
           type: 'image-text',
           name: 'Image & Text',
           description: 'A component with an image on one side and text content on the other',
+          requiresFiles: true,
+          fileFields: ['image'],
+          endpoint: '/sections',
+          textFields: {
+            text_1: 'Title',
+            text_2: 'Main text content',
+            text_3: 'CTA button text',
+            imageAlt: 'Image alt text'
+          },
           example: {
             type: 'image-text',
-            imageUrl: 'https://example.com/image.jpg',
+            imageUrl: '/uploads/image.jpg',
             imageAlt: 'Example image',
             title: 'Amazing Title',
             text: 'This is some amazing content text.',
@@ -33,9 +43,18 @@ export class SectionsService {
           type: 'hero',
           name: 'Hero Section',
           description: 'A full-width hero section with background image and call-to-action',
+          requiresFiles: true,
+          fileFields: ['backgroundImage'],
+          endpoint: '/sections',
+          textFields: {
+            text_1: 'Title',
+            text_2: 'Subtitle',
+            text_3: 'CTA button text',
+            backgroundImageAlt: 'Background image alt text'
+          },
           example: {
             type: 'hero',
-            backgroundImage: 'https://example.com/hero-bg.jpg',
+            backgroundImage: '/uploads/hero-bg.jpg',
             backgroundImageAlt: 'City skyline',
             title: 'Transform Your Business',
             subtitle: 'Join thousands of companies',
@@ -47,20 +66,26 @@ export class SectionsService {
           type: 'slider',
           name: 'Image Slider',
           description: 'An image carousel with multiple slides',
+          requiresFiles: true,
+          fileFields: ['images'],
+          endpoint: '/sections',
+          textFields: {
+            slideData: 'JSON string with slide data (titles, descriptions, etc.)'
+          },
           example: {
             type: 'slider',
             autoPlay: true,
             duration: 5,
             slides: [
               {
-                imageUrl: 'https://example.com/slide1.jpg',
+                imageUrl: '/uploads/slide1.jpg',
                 imageAlt: 'Slide 1',
                 title: 'Slide Title',
                 description: 'Slide description',
                 ctaButton: { text: 'View More', url: '/products' }
               },
               {
-                imageUrl: 'https://example.com/slide2.jpg',
+                imageUrl: '/uploads/slide2.jpg',
                 imageAlt: 'Slide 2',
                 title: 'Another Slide',
                 description: 'Another description'
@@ -72,6 +97,13 @@ export class SectionsService {
           type: 'text-block',
           name: 'Text Block',
           description: 'Simple text content with alignment options',
+          requiresFiles: false,
+          fileFields: [],
+          endpoint: '/sections',
+          textFields: {
+            text_1: 'Title (optional)',
+            text_2: 'Main content'
+          },
           example: {
             type: 'text-block',
             title: 'About Us',
@@ -84,13 +116,19 @@ export class SectionsService {
           type: 'gallery',
           name: 'Image Gallery',
           description: 'A collection of images with different layout options',
+          requiresFiles: true,
+          fileFields: ['images'],
+          endpoint: '/sections',
+          textFields: {
+            text_1: 'Title (optional)'
+          },
           example: {
             type: 'gallery',
             title: 'Our Portfolio',
             images: [
-              { url: 'https://example.com/img1.jpg', alt: 'Project 1', caption: 'E-commerce Platform' },
-              { url: 'https://example.com/img2.jpg', alt: 'Project 2', caption: 'Mobile App' },
-              { url: 'https://example.com/img3.jpg', alt: 'Project 3', caption: 'Web Dashboard' }
+              { url: '/uploads/img1.jpg', alt: 'Project 1', caption: 'E-commerce Platform' },
+              { url: '/uploads/img2.jpg', alt: 'Project 2', caption: 'Mobile App' },
+              { url: '/uploads/img3.jpg', alt: 'Project 3', caption: 'Web Dashboard' }
             ],
             layout: 'grid',
             columns: 3
@@ -100,6 +138,15 @@ export class SectionsService {
           type: 'contact-form',
           name: 'Contact Form',
           description: 'A customizable contact form with various field types',
+          requiresFiles: false,
+          fileFields: [],
+          endpoint: '/sections',
+          textFields: {
+            text_1: 'Form title',
+            text_2: 'Form description (optional)',
+            text_3: 'Submit button text',
+            text_4: 'Success message'
+          },
           example: {
             type: 'contact-form',
             title: 'Contact Us',
@@ -180,8 +227,28 @@ export class SectionsService {
   }
 
   async delete(id: string): Promise<Section> {
-    await this.findById(id); // Check if section exists
+    const section = await this.findById(id); // Check if section exists
+    
+    // Clean up associated files before deleting the section
+    await FileCleanupUtil.cleanupSectionFiles(section.content);
+    
     return this.sectionsRepository.delete(id);
+  }
+
+  async deleteByPageId(pageId: string): Promise<void> {
+    const sections = await this.sectionsRepository.findByPageId(pageId);
+    
+    // Clean up files for all sections
+    const cleanupPromises = sections.map(section => 
+      FileCleanupUtil.cleanupSectionFiles(section.content)
+    );
+    await Promise.all(cleanupPromises);
+    
+    // Delete all sections for this page
+    const deletionPromises = sections.map(section => 
+      this.sectionsRepository.delete(section.id)
+    );
+    await Promise.all(deletionPromises);
   }
 
   private async validateUniqueOrder(pageId: string, order: number, excludeId?: string): Promise<void> {
