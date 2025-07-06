@@ -52,18 +52,7 @@ async function main() {
     },
   });
 
-  // Create sample assets
-  const asset1 = await prisma.asset.create({
-    data: {
-      url: '/uploads/hero-bg.jpg',
-      type: 'image',
-      filename: 'hero-bg.jpg',
-      uploadedBy: 'system',
-    },
-  });
-
   console.log('Created pages:', { page1, page2 });
-  console.log('Created assets:', { asset1 });
 }
 
 main()

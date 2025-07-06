@@ -5,6 +5,14 @@ import { CreatePageDto } from './dto/create-page.dto';
 import { UpdatePageDto } from './dto/update-page.dto';
 import { SectionsService } from '../sections/sections.service';
 
+// Type for Page with relations
+type PageWithRelations = Page & {
+  children?: PageWithRelations[];
+  parent?: PageWithRelations | null;
+  sections?: any[];
+  fullPath?: string;
+};
+
 @Injectable()
 export class PagesService {
   constructor(
@@ -29,11 +37,93 @@ export class PagesService {
     return this.pagesRepository.findBySlug(slug);
   }
 
-  async create(createPageDto: CreatePageDto): Promise<Page> {
-    const existingPage = await this.pagesRepository.findBySlug(createPageDto.slug);
-    if (existingPage) {
-      throw new ConflictException('Page with this slug already exists');
+  async findByFullPath(fullPath: string): Promise<Page | null> {
+    // Split the path into segments
+    const segments = fullPath.split('/').filter(segment => segment !== '');
+    
+    if (segments.length === 0) {
+      return null;
     }
+    
+    // Start with root pages (no parent)
+    let currentPage: Page | null = null;
+    let currentParentId: string | null = null;
+    
+    for (const segment of segments) {
+      const page = await this.pagesRepository.findBySlugAndParent(segment, currentParentId);
+      if (!page) {
+        return null;
+      }
+      currentPage = page;
+      currentParentId = page.id;
+    }
+    
+    return currentPage;
+  }
+
+  async getAllSlugs(): Promise<string[]> {
+    const pages = await this.pagesRepository.findAll();
+    return pages.map(page => page.slug);
+  }
+
+  async getAllFullPaths(): Promise<string[]> {
+    const pages = await this.pagesRepository.findAll();
+    return pages.map(page => this.buildFullPath(page));
+  }
+
+  async getChildren(parentId: string): Promise<PageWithRelations[]> {
+    return this.pagesRepository.findChildren(parentId);
+  }
+
+  async getRootPages(): Promise<PageWithRelations[]> {
+    return this.pagesRepository.findRootPages();
+  }
+
+  async getPageHierarchy(): Promise<PageWithRelations[]> {
+    const rootPages = await this.pagesRepository.findRootPages();
+    
+    // Recursively build the hierarchy
+    const buildHierarchy = async (pages: PageWithRelations[]): Promise<PageWithRelations[]> => {
+      for (const page of pages) {
+        if (page.children && page.children.length > 0) {
+          page.children = await buildHierarchy(page.children);
+        }
+        page.fullPath = this.buildFullPath(page);
+      }
+      return pages;
+    };
+
+    return buildHierarchy(rootPages);
+  }
+
+  private buildFullPath(page: PageWithRelations): string {
+    const segments: string[] = [];
+    let currentPage: PageWithRelations | null = page;
+    
+    // Build path from current page up to root
+    while (currentPage) {
+      segments.unshift(currentPage.slug);
+      currentPage = currentPage.parent;
+    }
+    
+    return '/' + segments.join('/');
+  }
+
+  async create(createPageDto: CreatePageDto): Promise<Page> {
+    // Check if parent exists (if parentId is provided)
+    if (createPageDto.parentId) {
+      await this.findById(createPageDto.parentId); // This will throw NotFoundException if parent doesn't exist
+    }
+    
+    // Check for slug uniqueness within the same parent
+    const existingPage = await this.pagesRepository.findBySlugAndParent(
+      createPageDto.slug, 
+      createPageDto.parentId || null
+    );
+    if (existingPage) {
+      throw new ConflictException('Page with this slug already exists in this location');
+    }
+    
     return this.pagesRepository.create(createPageDto);
   }
 

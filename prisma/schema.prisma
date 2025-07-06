@@ -13,9 +13,17 @@ datasource db {
 model Page {
   id        String    @id @default(cuid())
   title     String
-  slug      String    @unique
+  slug      String    // Just the segment, not full path (e.g., "gallery", not "media/gallery")
+  parentId  String?   // Reference to parent page
   sections  Section[]
   createdAt DateTime  @default(now())
+  
+  // Self-referential relations
+  parent    Page?     @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Page[]    @relation("PageHierarchy")
+  
+  // Unique constraint: slug must be unique within the same parent
+  @@unique([slug, parentId])
 }
 
 model Section {

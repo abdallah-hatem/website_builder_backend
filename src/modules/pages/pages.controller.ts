@@ -57,6 +57,82 @@ export class PagesController {
     return this.pagesService.findBySlug(slug);
   }
 
+  @Get('slugs/all')
+  @ApiOperation({ summary: 'Get all page slugs' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'List of all page slugs', 
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Slugs retrieved successfully' },
+        data: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['home', 'about', 'contact', 'services']
+        }
+      }
+    }
+  })
+  getAllSlugs() {
+    return this.pagesService.getAllSlugs();
+  }
+
+  @Get('paths/all')
+  @ApiOperation({ summary: 'Get all page full paths' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'List of all page full paths', 
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Paths retrieved successfully' },
+        data: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['/home', '/media', '/media/gallery', '/company/about']
+        }
+      }
+    }
+  })
+  getAllFullPaths() {
+    return this.pagesService.getAllFullPaths();
+  }
+
+  // @Get('hierarchy')
+  // @ApiOperation({ summary: 'Get page hierarchy tree' })
+  // @ApiResponse({ 
+  //   status: 200, 
+  //   description: 'Page hierarchy with nested children',
+  //   type: ApiResponseDto<Page[]>
+  // })
+  // getPageHierarchy() {
+  //   return this.pagesService.getPageHierarchy();
+  // }
+
+  @Get(':id/children')
+  @ApiOperation({ summary: 'Get child pages of a page' })
+  @ApiParam({ name: 'id', description: 'Parent page ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Child pages retrieved successfully',
+    type: ApiResponseDto<Page[]>
+  })
+  getChildren(@Param('id') id: string) {
+    return this.pagesService.getChildren(id);
+  }
+
+  @Get('path/:path(*)')
+  @ApiOperation({ summary: 'Get page by full path' })
+  @ApiParam({ name: 'path', description: 'Full page path (e.g., "media/gallery")' })
+  @ApiResponse({ status: 200, description: 'Page found', type: ApiResponseDto<Page> })
+  @ApiResponse({ status: 404, description: 'Page not found' })
+  findByFullPath(@Param('path') path: string) {
+    return this.pagesService.findByFullPath(path);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update page by ID' })
   @ApiParam({ name: 'id', description: 'Page ID' })
